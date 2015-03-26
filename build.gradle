@@ -1,0 +1,112 @@
+plugins {
+    id 'java'
+}
+version = '1.0'
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+libsDirName = 'app'
+
+//Get dependencies from Maven central repository
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    integrationTestCompile { extendsFrom compile, testCompile }
+    integrationTestRuntime { extendsFrom integrationTestCompile, runtime }
+}
+
+sourceSets {
+    integrationTest {
+        /*compileClasspath = compile + configurations.integrationTestCompile
+        runtimeClasspath = classes + compile + configurations.integrationTest*/
+        java.srcDir file('src/integrationTest/java')
+        resources.srcDir file('src/integrationTest/resources')
+    }
+}
+//Project dependencies
+dependencies {
+    compile('ch.qos.logback:logback-classic:1.1.2','com.google.code.gson:gson:2.3.1')
+
+    testCompile('org.testng:testng:6.8.21')
+    integrationTestCompile sourceSets.main.output
+}
+
+task integrationTest(type: Test) {
+    testClassesDir = sourceSets.integrationTest.output.classesDir
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    systemProperties(['resourcePath':'src\\integrationTest\\resources\\'])
+    useTestNG()
+            {
+                includeGroups 'integration'
+            }
+    testLogging.showStandardStreams = true
+  // listen to standard out and standard error of the test JVM(s)
+      onOutput { descriptor, event ->
+         logger.lifecycle(event.message )
+      }
+    testLogging {
+        events 'passed','failed'
+    }
+
+}
+check.dependsOn integrationTest
+
+test {
+    systemProperties(['resourcePath':'src\\test\\resources\\'])
+    useTestNG() {
+        includeGroups 'unit'
+       // includeGroups 'parsing'
+    }
+    testLogging.showStandardStreams = true
+  // listen to standard out and standard error of the test JVM(s)
+  onOutput { descriptor, event ->
+     logger.lifecycle(event.message )
+  }
+    testLogging {
+        events 'passed','failed'
+    }
+    /*{
+
+     //
+    // show standard out and standard error of the test JVM(s) on the console
+    testLogging.showStandardStreams = true
+    testLogging {
+        events 'started', 'passed'
+    }
+    // listen to events in the test execution lifecycle
+    beforeTest { descriptor ->
+        logger.lifecycle("Running test: " + descriptor)
+    }
+    // listen to standard out and standard error of the test JVM(s)
+    onOutput { descriptor, event ->
+        logger.lifecycle("Test: " + descriptor + " produced standard out/err: " + event.message)
+    }
+    }*/
+
+}
+
+
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.3'
+}
+
+task downloadLibs(type: Copy) {
+    from configurations.testCompile
+    into 'libs'
+}
+
+//create a single Jar with all dependencies
+task buildAllInOne(type: Jar) {
+	manifest {
+        attributes 'Implementation-Title': 'Handlers Programming Test',
+        	'Implementation-Version': version,
+        	'Main-Class': 'com.Application'
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+
